@@ -14,6 +14,7 @@
 #define __pluginCore_h__
 
 #include "pluginbase.h"
+#include "../Libraries/Dynamics/lookAheadCompressor.h"
 
 // **--0x7F1F--**
 
@@ -79,6 +80,26 @@ public:
 	/** process frames of data (DEFAULT MODE) */
 	virtual bool processAudioFrame(ProcessFrameInfo& processFrameInfo);
 
+	inline bool isStereoOutput(ProcessFrameInfo& processFrameInfo)
+	{
+		return processFrameInfo.channelIOConfig.outputChannelFormat == kCFStereo;
+	}
+
+	inline bool isStereoInput(ProcessFrameInfo& processFrameInfo)
+	{
+		return processFrameInfo.channelIOConfig.inputChannelFormat == kCFStereo;
+	}
+
+	inline bool isMonoOutput(ProcessFrameInfo& processFrameInfo)
+	{
+		return processFrameInfo.channelIOConfig.outputChannelFormat == kCFMono;
+	}
+
+	inline bool isMonoInput(ProcessFrameInfo& processFrameInfo)
+	{
+		return processFrameInfo.channelIOConfig.inputChannelFormat == kCFMono;
+	}
+
 	/** Pre-process the block with: MIDI events for the block and parametet smoothing */
 	virtual bool preProcessAudioBlock(IMidiEventQueue* midiEventQueue = nullptr);
 
@@ -132,6 +153,9 @@ public:
 	// --- END USER VARIABLES AND FUNCTIONS -------------------------------------- //
 
 protected:
+	LookAheadCompressor dynamicsProcessors[2];
+
+	void updateParameters(bool enableSideChain);
 
 private:
 	//  **--0x07FD--**
@@ -157,6 +181,9 @@ private:
 
 	// **--0x1A7F--**
     // --- end member variables
+
+	void updateSingleChannelParameters(DynProcessor& processor, bool enableSideChain);
+
 
 public:
     /** static description: bundle folder name

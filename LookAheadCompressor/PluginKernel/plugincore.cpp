@@ -14,6 +14,8 @@
 #include "plugindescription.h"
 #pragma warning (disable : 4244)
 
+constexpr auto LEFT = 0;
+constexpr auto RIGHT = 1;
 /**
 \brief PluginCore constructor is launching pad for object initialization
 
@@ -70,7 +72,11 @@ bool PluginCore::reset(ResetInfo& resetInfo)
     audioProcDescriptor.sampleRate = resetInfo.sampleRate;
     audioProcDescriptor.bitDepth = resetInfo.bitDepth;
 
-    // --- other reset inits
+	// --- reset left and right processors
+	dynamicsProcessors[LEFT].reset(resetInfo.sampleRate);
+	dynamicsProcessors[RIGHT].reset(resetInfo.sampleRate);
+
+	// --- other reset inits
     return PluginBase::reset(resetInfo);
 }
 
@@ -163,58 +169,85 @@ bool PluginCore::processAudioFrame(ProcessFrameInfo& processFrameInfo)
 	//     updateParameters is the name used in Will Pirkle's books for the GUI update function
 	//     you may name it what you like - this is where GUI control values are cooked
 	//     for the DSP algorithm at hand
-	// updateParameters();
+	bool enableSC = processFrameInfo.numAuxAudioInChannels > 0;
+	updateParameters(enableSC);
 
-
-    // --- decode the channelIOConfiguration and process accordingly
-    //
-	// --- Synth Plugin:
-	// --- Synth Plugin --- remove for FX plugins
-	if (getPluginType() == kSynthPlugin)
+	// Process left channel
+	if (enableSC)
 	{
-		// --- output silence: change this with your signal render code
-		processFrameInfo.audioOutputFrame[0] = 0.0;
-		if (processFrameInfo.channelIOConfig.outputChannelFormat == kCFStereo)
-			processFrameInfo.audioOutputFrame[1] = 0.0;
+		dynamicsProcessors[LEFT].processAuxInputAudioSample(processFrameInfo.auxAudioInputFrame[LEFT]);
+	}
+	auto inL = processFrameInfo.audioInputFrame[LEFT];
+	auto outL = dynamicsProcessors[LEFT].processAudioSample(inL);
+	processFrameInfo.audioOutputFrame[LEFT] = outL;
 
-		return true;	/// processed
+
+	// Gain Reduction Meter for mono input
+	double grLeft = dynamicsProcessors[LEFT].getGainReduction();
+	grMeter = 1.0 - grLeft;
+
+	// Detector meter out just for debugging purposes
+	detectorOutMeter = pow(10.0, dynamicsProcessors[LEFT].getDetectorEnvelope() / 20.0);
+
+	// --- FX Plugin:
+	if (isMonoInput(processFrameInfo) && isMonoOutput(processFrameInfo))
+	{
+		return true; /// processed
 	}
 
-    // --- FX Plugin:
-    if(processFrameInfo.channelIOConfig.inputChannelFormat == kCFMono &&
-       processFrameInfo.channelIOConfig.outputChannelFormat == kCFMono)
-    {
-		// --- pass through code: change this with your signal processing
-        processFrameInfo.audioOutputFrame[0] = processFrameInfo.audioInputFrame[0];
+	// --- Mono-In/Stereo-Out
+	else if (isMonoInput(processFrameInfo) && isStereoOutput(processFrameInfo))
+	{
+		processFrameInfo.audioOutputFrame[RIGHT] = outL;
+		return true; /// processed
+	}
 
-        return true; /// processed
-    }
+	// --- Stereo-In/Stereo-Out
+	else if (isStereoInput(processFrameInfo) && isStereoOutput(processFrameInfo))
+	{
+		// Process right channel
+		if (enableSC)
+		{
+			auto scInputIndex = processFrameInfo.numAuxAudioInChannels > 1 ? RIGHT : LEFT;
+			dynamicsProcessors[RIGHT].processAuxInputAudioSample(processFrameInfo.auxAudioInputFrame[scInputIndex]);
+		}
+		auto inR = processFrameInfo.audioInputFrame[RIGHT];
+		auto outR = dynamicsProcessors[RIGHT].processAudioSample(inR);
+		processFrameInfo.audioOutputFrame[RIGHT] = outR;
 
-    // --- Mono-In/Stereo-Out
-    else if(processFrameInfo.channelIOConfig.inputChannelFormat == kCFMono &&
-       processFrameInfo.channelIOConfig.outputChannelFormat == kCFStereo)
-    {
-		// --- pass through code: change this with your signal processing
-        processFrameInfo.audioOutputFrame[0] = processFrameInfo.audioInputFrame[0];
-        processFrameInfo.audioOutputFrame[1] = processFrameInfo.audioInputFrame[0];
+		// Gain reduction meter for stereo input
+		double grRight = dynamicsProcessors[RIGHT].getGainReduction();
+		grMeter = 1.0 - 0.5 * (grLeft + grRight);
 
-        return true; /// processed
-    }
+		return true; /// processed
+	}
 
-    // --- Stereo-In/Stereo-Out
-    else if(processFrameInfo.channelIOConfig.inputChannelFormat == kCFStereo &&
-       processFrameInfo.channelIOConfig.outputChannelFormat == kCFStereo)
-    {
-		// --- pass through code: change this with your signal processing
-        processFrameInfo.audioOutputFrame[0] = processFrameInfo.audioInputFrame[0];
-        processFrameInfo.audioOutputFrame[1] = processFrameInfo.audioInputFrame[1];
-
-        return true; /// processed
-    }
-
-    return false; /// NOT processed
+	return false; /// NOT processed
 }
 
+void PluginCore::updateSingleChannelParameters(DynProcessor& processor, bool enableSideChain)
+{
+	DynProcessorParameters processorParams = processor.getParameters();
+	processorParams.attackTime_mSec = attackTime_mSec;
+	processorParams.releaseTime_mSec = releaseTime_mSec;
+	processorParams.threshold_dB = threshold_dB;
+	processorParams.kneeWidth_dB = kneeWidth_dB;
+	processorParams.ratio = ratio;
+	processorParams.outputGain_dB = outputGain_dB;
+	processorParams.calculation = gainShaperType::kCompressor;
+	processorParams.hardLimitGate = (hardLimitGate == 1);
+	processorParams.softKnee = (softKnee == 1);
+	processor.setParameters(processorParams);
+}
+
+void PluginCore::updateParameters(bool enableSideChain)
+{
+	// --- update left
+	updateSingleChannelParameters(dynamicsProcessors[LEFT], enableSideChain);
+
+	// --- update right
+	updateSingleChannelParameters(dynamicsProcessors[RIGHT], enableSideChain);
+}
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //	--- BLOCK/BUFFER PRE-PROCESSING FUNCTION --- //
 //      Only used when BLOCKS or BUFFERS are processed

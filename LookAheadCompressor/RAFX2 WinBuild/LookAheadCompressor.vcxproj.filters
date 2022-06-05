@@ -143,6 +143,9 @@
     <ClInclude Include="..\..\Libraries\fxCommon.h">
       <Filter>PluginObjects</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Libraries\delay.h">
+      <Filter>PluginObjects</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Resources\PluginGUI.uidesc">

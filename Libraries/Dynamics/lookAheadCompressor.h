@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include "dynamicsProcessor.h"
+#include "../delay.h"
 
 /**
 \class FeedForwardDynamicsProcessor
@@ -20,13 +21,16 @@ Control I/F:
 \version Revision : 1.0
 \date Date : 2018 / 09 / 7
 */
-class FeedForwardDynamicsProcessor : public DynProcessor
+class LookAheadCompressor : public DynProcessor
 {
 public:
-	FeedForwardDynamicsProcessor() {}	/* C-TOR */
-	~FeedForwardDynamicsProcessor() {}	/* D-TOR */
+	LookAheadCompressor() {}	/* C-TOR */
+	~LookAheadCompressor() {}	/* D-TOR */
 
 public:
+
+	/** reset members to initialized state */
+	virtual bool reset(double _sampleRate);
 
 	/** process audio using feed-forward dynamics processor flowchart */
 	/*
@@ -39,5 +43,15 @@ public:
 	\return the processed sample
 	*/
 	virtual double processAudioSample(double xn);
+
+	/** set parameters: note use of custom structure for passing param data */
+/**
+\param DynamicsProcessorParameters custom data structure
+*/
+	virtual void setParameters(const DynProcessorParameters& _parameters);
+
+
+private:
+	SimpleDelay delayLine;
 
 };

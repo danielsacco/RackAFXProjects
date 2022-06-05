@@ -259,6 +259,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\Libraries\audioDetector.h" />
     <ClInclude Include="..\..\Libraries\constants.h" />
+    <ClInclude Include="..\..\Libraries\delay.h" />
     <ClInclude Include="..\..\Libraries\Dynamics\dynamicsProcessor.h" />
     <ClInclude Include="..\..\Libraries\Dynamics\lookAheadCompressor.h" />
     <ClInclude Include="..\..\Libraries\fxCommon.h" />
