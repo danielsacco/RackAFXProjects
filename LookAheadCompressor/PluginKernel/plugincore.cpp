@@ -242,6 +242,9 @@ void PluginCore::updateSingleChannelParameters(DynProcessor& processor, bool ena
 
 void PluginCore::updateParameters(bool enableSideChain)
 {
+
+	pluginDescriptor.latencyInSamples = attackTime_mSec * audioProcDescriptor.sampleRate;
+
 	// --- update left
 	updateSingleChannelParameters(dynamicsProcessors[LEFT], enableSideChain);
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <math.h>
+#include "iAudioSignalProcessor.h"
 
 enum class gainShaperType { kCompressor, kDownwardExpander };
 
